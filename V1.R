@@ -1,5 +1,7 @@
+setwd("C:/Users/user/Desktop/MSLFP")
 data <- read.csv("adjhours.csv")
 attach(data)
+regmodel<-rep(0,8)
 count <- matrix(0, nrow = 17379, ncol = 25)
 count[,1] <- data$cnt
 for(i in 2:25)
@@ -21,7 +23,10 @@ newdata.log<-cbind(y,newdata.log)
 library(leaps)
 library(boot)
 regfit<-regsubsets(y~.,force.in=c(1:26),nvmax=35,data=newdata.log)
-# summary(regfit)
+Sumofreg<-summary(regfit)
+regmodel[1]<-which.min(Sumofreg$cp)
+regmodel[2]<-which.min(Sumofreg$bic)
+regmodel[3]<-which.min(Sumofreg$adjr2)
 name <- data.frame(c(1:36), colnames(newdata.log))
 #### method 1 rollng windows (window size not fixed) weekly fold
 valtotal.errors=rep(0,9)
@@ -43,7 +48,7 @@ for(i in 1:91)
 	 }
 }
 realmse<-valtotal.errors/91
-realmse
+regmodel[4]<-which.min(realmse)
 ###### method 2 rolling windows  (window size fixed) weekly fold
 valtotalm2.errors=rep(0,9)
 for(i in 1:91)
@@ -64,8 +69,8 @@ for(i in 1:91)
 	 }
 }
 realmse2<-valtotalm2.errors/91
-realmse2
-###### method 3 rolling windows (windows size fixed) daily fold
+regmodel[5]<-which.min(realmse2)
+###### method 3 rolling windows (windows size no fixed) daily fold
 valdfm3.errors=rep(0,9)
 for(i in 5:647)
 {
@@ -84,5 +89,48 @@ for(i in 5:647)
 	    valdfm3.errors[j]=valdfm3.errors[j]+val.errors[j]
 	 }
 }
-realmse3<-valdfm3.errors/647
-realmse3	
+realmse3<-valdfm3.errors/643
+regmodel[6]<-which.min(realmse3)
+###### method 4 rolling windows (windows size fixed) mothly fold
+valmtlyfold.errors=rep(0,9)
+for(i in 1:20)
+{
+	 train<-newdata.log[720*(i-1)+1:(720*i),]    
+	 test<-newdata.log[((720*i)+1):(720*i+720),]
+	 test.mat=model.matrix(y~.,data=test)
+	 val.errors=rep(NA,9)
+	 for(j in 1:9)
+	 {
+	    feature <- name[name[,2]==names(coef(regfit,id = j)),1] 
+	    sf.data <- train[,c(1,feature)]
+	    model<-lm(y~.,data=sf.data)
+	    coefi=coef(model)
+	    pred=test.mat[,names(coefi)]%*%coefi
+	  	val.errors[j]=mean( (exp(test$y)-exp(pred))^2)
+	    valmtlyfold.errors[j]=valmtlyfold.errors[j]+val.errors[j]
+	 }
+}
+realmse4<-valmtlyfold.errors/20
+regmodel[7]<-which.min(realmse4)
+###### method 4 rolling windows (windows size fixed) mothly fold
+valhmthfd.errors=rep(0,9)
+for(i in 1:40)
+{
+	 train<-newdata.log[360*(i-1)+1:(360*i),]    
+	 test<-newdata.log[((360*i)+1):(360*i+360),]
+	 test.mat=model.matrix(y~.,data=test)
+	 val.errors=rep(NA,9)
+	 for(j in 1:9)
+	 {
+	    feature <- name[name[,2]==names(coef(regfit,id = j)),1] 
+	    sf.data <- train[,c(1,feature)]
+	    model<-lm(y~.,data=sf.data)
+	    coefi=coef(model)
+	    pred=test.mat[,names(coefi)]%*%coefi
+	  	val.errors[j]=mean( (exp(test$y)-exp(pred))^2)
+	    valhmthfd.errors[j]=valhmthfd.errors[j]+val.errors[j]
+	 }
+}
+realmse5<-valhmthfd.errors/40
+regmodel[8]<-which.min(realmse5)
+regmodel

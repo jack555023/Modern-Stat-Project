@@ -21,24 +21,25 @@ y<-log(1+cnt)[1808:17379]
 newdata.log<-cbind(y,newdata.log)
 library(leaps)
 library(boot)
-# regfit<-regsubsets(y~.,force.in=c(1:26),nvmax=35,data=newdata.log)
+regfit<-regsubsets(y~.,force.in=c(1:26),nvmax=35,data=newdata.log)
 # summary(regfit)
-valtotal.errors=rep(0,91)
+name <- data.frame(c(1:36), colnames(newdata.log))
+valtotal.errors=rep(0,9)
 for(i in 1:91)
 {
 	train<-newdata.log[1:(168*i),]    
 	test<-newdata.log[((168*i)+1):(168*i+168),]
 	test.mat=model.matrix(y~.,data=test)
 	val.errors=rep(NA,9)
-		for(j in 1:9)
+     for(j in 1:9)
 		{
-		   coefi=coef(regfit,id=j)
+		   feature <- name[name[,2]==names(coef(regfit,id = j)),1] 
+	       sf.data <- train[,c(1,feature)]
+	       model<-lm(y~.,data=sf.data)
+		   coefi=coef(model)
 		   pred=test.mat[,names(coefi)]%*%coefi
-		   val.errors[j]=mean( ( exp(test$y) - exp(pred) ) ^2)
+		   val.errors[j]=mean( (exp(test$y)-exp(pred))^2)
+		   valtotal.errors[j]=valtotal.errors[j]+val.errors[j]
 		}
 }
-which.min(valtotal.errors)
-valtotal.errors[which.min(valtotal.errors)]
-
-fs.data <- cbind(y, train[,names(coef(regfit,id = 1))])
-lm(y~.,)
+realmse<-valtotal.errors/91
